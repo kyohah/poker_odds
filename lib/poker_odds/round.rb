@@ -80,15 +80,16 @@ module PokerOdds
 
       s = z.size.to_f
 
+      binding.pry
       hands.each_with_object({}) do |hand, h|
+        binding.pry
         win_hands = z.select { |a,b| b[:win_hands]&.include?(hand) }
         win_rate = win_hands.size / s
-        h = {}
-        h[:hand] = hand
-        h[:win_rate] = win_rate
-        h[:lose_rate] = z.count { |a,b| b[:lose_hands]&.include?(hand) } / s
-        h[:tie_rate] = z.count { |a,b| b[:tie_hands]&.include?(hand) } / s
-        h[:outs] = win_hands.keys if win_rate > 0.5
+        h[hand] = {}
+        h[hand][:win_rate] = win_rate
+        h[hand][:lose_rate] = z.count { |a,b| b[:lose_hands]&.include?(hand) } / s
+        h[hand][:tie_rate] = z.count { |a,b| b[:tie_hands]&.include?(hand) } / s
+        h[hand][:outs] = win_hands.keys if win_rate > 0.5
       end
     end
 
