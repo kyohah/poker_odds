@@ -1,9 +1,8 @@
-require 'hashie'
-require 'active_support/all'
+require 'virtus'
+require 'poker_trump'
+
 require_relative "poker_odds/version"
-require_relative 'poker_odds/card'
-require_relative 'poker_odds/cards'
-require_relative 'poker_odds/round'
+require_relative 'poker_odds/hand'
 
 module PokerOdds
   class Error < StandardError; end

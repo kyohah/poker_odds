@@ -2,7 +2,7 @@
 
 Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/poker_odds`. To experiment with that code, run `bin/console` for an interactive prompt.
 
-TODO: Delete this and the text above, and describe your gem
+ポーカーのエクイティが分かる
 
 ## Installation
 
@@ -23,22 +23,14 @@ Or install it yourself as:
 ## Usage
 
 ```
-round = PokerOdds::Round.new(flop: 'Ah 9h Jd', turn: '3d')
-round.add_hand("9d 9c")
-round.add_hand("Kd Kc")
+round = PokerOdds::Hand.new(flop: 'Ah 9h Jd', turn: '3d')
+round.player='9d 9c, Kd Kc'
 
 round.equities
 # =>
-[{:hand=>[{:rank=>"K", :suit=>:d}, {:rank=>"K", :suit=>:c}],
-  :win_rate=>0.045454545454545456,
-  :lose_rate=>0.9545454545454546,
-  :tie_rate=>0.0,
-  :outs=>[{:suit=>:s, :rank=>"K"}, {:suit=>:h, :rank=>"K"}]},
- {:hand=>[{:rank=>"9", :suit=>:d}, {:rank=>"9", :suit=>:c}],
-  :win_rate=>0.9545454545454546,
-  :lose_rate=>0.045454545454545456,
-  :tie_rate=>0.0,
-  :outs=>[]}]
+{[#<PokerTrump::Card:0x00007fedc3889ab0 @rank="9", @suit=:d>, #<PokerTrump::Card:0x00007fedc38898f8 @rank="9", @suit=:c>]=>{:win_rate=>0.9545454545454546, :lose_rate=>0.045454545454545456, :tie_rate=>0.0},
+ [#<PokerTrump::Card:0x00007fedc3889650 @rank="K", @suit=:d>, #<PokerTrump::Card:0x00007fedc38894e8 @rank="K", @suit=:c>]=>
+  {:win_rate=>0.045454545454545456, :lose_rate=>0.9545454545454546, :tie_rate=>0.0, :outs=>[#<PokerTrump::Card:0x00007feda08a3208 @rank="K", @suit=:s>, #<PokerTrump::Card:0x00007feda08a2bc8 @rank="K", @suit=:h>]}}
 
 ```
 
