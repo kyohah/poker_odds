@@ -1,5 +1,5 @@
 /.bundle/
-/.yardoc
+/.yardoc/
 /_yardoc/
 /coverage/
 /doc/
@@ -9,3 +9,7 @@
 
 # rspec failure tracking
 .rspec_status
+
+# Compiled native extension
+lib/poker_odds/poker_odds.bundle
+lib/poker_odds/poker_odds.so
