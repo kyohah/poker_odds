@@ -1,53 +1,154 @@
 # PokerOdds
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/poker_odds`. To experiment with that code, run `bin/console` for an interactive prompt.
+Texas Hold'em のポーカーハンドエクイティ計算 Ruby gem です。
+内部に Rust ネイティブ拡張を持ち、完全探索によって高速にエクイティ・アウツを算出します。
 
-ポーカーのエクイティが分かる
+## 特徴
 
-## Installation
+- **高速**: Rust 製ハンド評価エンジン [holdem-hand-evaluator](https://github.com/b-inary/holdem-hand-evaluator) を採用（〜12億評価/秒）
+- **完全探索**: モンテカルロではなく全残余カードの組み合わせを網羅
+- **プリコンパイル済みバイナリ配布**: 主要プラットフォーム向けにコンパイル済みgemを提供するため、利用時に Rust は不要
+- **アウツ計算**: 負けているハンドが逆転できるカード（アウツ）を返す
 
-Add this line to your application's Gemfile:
+## インストール
 
 ```ruby
-gem 'poker_odds'
+gem "poker_odds"
 ```
 
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install poker_odds
-
-## Usage
-
-```
-round = PokerOdds::Hand.new(flop: 'Ah 9h Jd', turn: '3d')
-round.player='9d 9c, Kd Kc'
-
-round.equities
-# =>
-{[#<PokerTrump::Card:0x00007fedc3889ab0 @rank="9", @suit=:d>, #<PokerTrump::Card:0x00007fedc38898f8 @rank="9", @suit=:c>]=>{:win_rate=>0.9545454545454546, :lose_rate=>0.045454545454545456, :tie_rate=>0.0},
- [#<PokerTrump::Card:0x00007fedc3889650 @rank="K", @suit=:d>, #<PokerTrump::Card:0x00007fedc38894e8 @rank="K", @suit=:c>]=>
-  {:win_rate=>0.045454545454545456, :lose_rate=>0.9545454545454546, :tie_rate=>0.0, :outs=>[#<PokerTrump::Card:0x00007feda08a3208 @rank="K", @suit=:s>, #<PokerTrump::Card:0x00007feda08a2bc8 @rank="K", @suit=:h>]}}
-
+```sh
+bundle install
+# または
+gem install poker_odds
 ```
 
-## Development
+## 使い方
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+### equities — ターン後（残りリバーを全探索）
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+```ruby
+round = PokerOdds::Hand.new
+round.flop   = "Ah 9h Jd"
+round.turn   = "3d"
+round.player = "9d 9c, Kd Kc"
 
-## Contributing
+result = round.equities
+# => {
+#   "9d9c" => { win_rate: 0.954, lose_rate: 0.045, tie_rate: 0.0, outs: [] },
+#   "KdKc" => { win_rate: 0.045, lose_rate: 0.954, tie_rate: 0.0, outs: ["Kh", "Ks"] }
+# }
+```
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/poker_odds. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
+`outs` は負けているハンドが勝てるリバーカードの配列です。
 
-## License
+### flop_equities — フロップ後（ターン+リバーの全組み合わせを探索）
 
-The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+```ruby
+round = PokerOdds::Hand.new
+round.flop   = "Ah 9h Jd"
+round.player = "9d 9c, Kd Kc"
 
-## Code of Conduct
+result = round.flop_equities
+# => {
+#   "9d9c" => { win_rate: 0.87, lose_rate: 0.12, tie_rate: 0.0, outs: [] },
+#   "KdKc" => { win_rate: 0.12, lose_rate: 0.87, tie_rate: 0.0,
+#               outs: [["Kh", "2c"], ["Ks", "7d"], ...] }
+# }
+```
 
-Everyone interacting in the PokerOdds project’s codebases, issue trackers, chat rooms and mailing lists is expected to follow the [code of conduct](https://github.com/[USERNAME]/poker_odds/blob/master/CODE_OF_CONDUCT.md).
+`outs` は `[turn, river]` のペア配列です。
+
+### preflop_equities — プリフロップ（ボード5枚の全組み合わせを探索）
+
+```ruby
+round = PokerOdds::Hand.new
+round.player = "9d 9c, Kd Kc"
+
+result = round.preflop_equities
+# => {
+#   "KdKc" => { win_rate: 0.77, lose_rate: 0.22, tie_rate: 0.0, outs: [] },
+#   "9d9c" => { win_rate: 0.22, lose_rate: 0.77, tie_rate: 0.0,
+#               outs: [["9h", "9s", "2c", "3d", "7h"], ...] }
+# }
+```
+
+`outs` は `[flop1, flop2, flop3, turn, river]` の5枚ボード配列です。
+
+### 3人以上のプレイヤー
+
+```ruby
+round = PokerOdds::Hand.new
+round.player = "9d 9c, Kd Kc, 2h 2s"
+
+result = round.preflop_equities
+result.each do |hand, stats|
+  puts "#{hand}: win=#{stats[:win_rate].round(3)}"
+end
+```
+
+### expose（公開済みカードの指定）
+
+デッキから除外したいカード（バーンカードなど）を指定できます:
+
+```ruby
+round = PokerOdds::Hand.new
+round.flop   = "Ah 9h Jd"
+round.turn   = "3d"
+round.expose = "2c 7s"   # デッキに存在しないカードとして扱う
+round.player = "9d 9c, Kd Kc"
+result = round.equities
+```
+
+## 開発
+
+```sh
+# 依存パッケージのインストール（Rust も必要）
+bin/setup
+
+# テスト実行
+bundle exec rspec
+
+# ネイティブ拡張のコンパイル
+bundle exec rake compile
+
+# 全タスク（compile + spec + rubocop）
+bundle exec rake
+```
+
+## ライセンス
+
+このgemは [MIT License](https://opensource.org/licenses/MIT) のもとで公開されています。
+
+### サードパーティライセンス
+
+このgemは以下のOSSを内部で使用しています:
+
+| ライブラリ | 作者 | ライセンス | 用途 |
+|---|---|---|---|
+| [holdem-hand-evaluator](https://github.com/b-inary/holdem-hand-evaluator) | Wataru Inariba (b-inary) | MIT | Rust製ポーカーハンド評価エンジン |
+
+holdem-hand-evaluator の著作権表示:
+
+```
+MIT License
+
+Copyright (c) 2020 Wataru Inariba
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
