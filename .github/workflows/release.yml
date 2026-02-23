@@ -45,6 +45,8 @@ jobs:
     needs: cross-compile
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      id-token: write  # for OIDC trusted publishing
 
     steps:
       - uses: actions/download-artifact@v4
@@ -53,11 +55,7 @@ jobs:
           merge-multiple: true
           path: pkg/
 
+      - uses: rubygems/configure-rubygems-credentials@v1
+
       - name: Push all gems to RubyGems
-        run: |
-          mkdir -p ~/.gem
-          printf -- "---\n:rubygems_api_key: %s\n" "${RUBYGEMS_API_KEY}" > ~/.gem/credentials
-          chmod 0600 ~/.gem/credentials
-          find pkg/ -name "*.gem" | sort | xargs -I{} gem push {}
-        env:
-          RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+        run: find pkg/ -name "*.gem" | sort | xargs -I{} gem push {}
