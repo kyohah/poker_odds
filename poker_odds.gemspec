@@ -35,12 +35,13 @@ Gem::Specification.new do |spec|
   spec.bindir        = "exe"
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
+  spec.extensions    = ["ext/poker_odds/extconf.rb"]
 
   spec.add_development_dependency "bundler"
   spec.add_development_dependency "rake"
+  spec.add_development_dependency "rake-compiler", "~> 1.2"
   spec.add_development_dependency "rspec"
   spec.add_development_dependency "pry"
 
-  spec.add_dependency 'virtus'
-  spec.add_dependency 'poker_trump'
+  spec.add_dependency "rb_sys", "~> 0.9"
 end

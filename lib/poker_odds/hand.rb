@@ -1,165 +1,68 @@
 module PokerOdds
   class Hand
-    include Virtus.model
+    def initialize(**opts)
+      @player_hands = []
+      @flop_cards   = ""
+      @turn_card    = nil
+      @river_card   = nil
+      @expose_cards = ""
+      opts.each { |k, v| send(:"#{k}=", v) }
+    end
 
-    attribute :player_hands, Array, default: []
-    attribute :flop_cards, PokerTrump::Cards
-    attribute :turn_card, PokerTrump::Card
-    attribute :river_card, PokerTrump::Card
+    # Getters — return normalized (spaceless) internal representation
+    def player  = @player_hands
+    def flop    = @flop_cards
+    def turn    = @turn_card
+    def river   = @river_card
+    def expose  = @expose_cards
 
-    attribute :expose_cards, PokerTrump::Cards
-
+    # "9d 9c, Kd Kc" -> ["9d9c", "KdKc"]
     def player=(str)
-      self.player_hands = str.split(',').map do |s|
-        PokerTrump::Cards.from_string(s.lstrip)
-      end
+      @player_hands = str.split(",").map { |s| s.strip.delete(" ") }
       self
     end
 
+    # "Ah 9h Jd" -> "Ah9hJd"
     def flop=(str)
-      self.flop_cards = PokerTrump::Cards.from_string(str)
+      @flop_cards = str.delete(" ")
       self
     end
 
+    # "3d" -> "3d"
     def turn=(str)
-      self.turn_card = PokerTrump::Card.from_string(str)
+      @turn_card = str.strip
       self
     end
 
-    def river=(s)
-      self.river_cards = PokerTrump::Card.from_string(str)
+    # "Xx" -> "Xx"
+    def river=(str)
+      @river_card = str.strip
       self
     end
 
+    # "Ah Kd" -> "AhKd"
+    def expose=(str)
+      @expose_cards = str.delete(" ")
+      self
+    end
+
+    # Flop + turn known (4 cards). Exhaustively iterates all possible river cards.
+    # Returns: { "9d9c" => { win_rate:, lose_rate:, tie_rate:, outs: [...] }, ... }
     def equities
-      z = deck.each_with_object({}) do |card, a|
-        scores = player_hands.each_with_object({}) do |player_hand, h|
-          cards = player_hand
-          cards = cards.add_cards(flop_cards)
-          cards = cards.add_card(turn_card)
-          cards = cards.add_card(card)
-
-          h[cards.score] ||= []
-          h[cards.score] << player_hand
-        end
-
-        a[card] = {}
-        if scores.keys.size == 1
-          a[card][:tie_hands] = player_hands
-        else
-          mk = scores.keys.max
-          a[card][:win_hands] = scores[mk]
-          a[card][:lose_hands] = scores.each_with_object([]) do |(k,v), a|
-            next if k == mk
-
-            a.concat(v)
-          end
-        end
-      end
-
-      s = z.size.to_f
-
-      player_hands.each_with_object({}) do |player_hand, h|
-        win_hands = z.select { |a,b| b[:win_hands]&.include?(player_hand) }
-        win_rate = win_hands.size / s
-        h[player_hand] = {}
-        h[player_hand][:win_rate] = win_rate
-        h[player_hand][:lose_rate] = z.count { |a,b| b[:lose_hands]&.include?(player_hand) } / s
-        h[player_hand][:tie_rate] = z.count { |a,b| b[:tie_hands]&.include?(player_hand) } / s
-        h[player_hand][:outs] = win_hands.keys if win_rate < 0.5
-      end
+      board = [@flop_cards, @turn_card].join
+      PokerOdds::Evaluator.equities(@player_hands, board, @expose_cards)
     end
 
+    # Flop known (3 cards). Exhaustively iterates all turn+river combinations.
+    # Returns: { "9d9c" => { win_rate:, lose_rate:, tie_rate: }, ... }
     def flop_equities
-      z = deck.combination(2).each_with_object({}) do |cs, a|
-        scores = player_hands.each_with_object({}) do |player_hand, h|
-          cards = player_hand
-          cards = cards.add_cards(flop_cards)
-
-          cs.each { |c| cards = cards.add_card(c) }
-
-          h[cards.score] ||= []
-          h[cards.score] << player_hand
-        end
-
-        a[cs] = {}
-        if scores.keys.size == 1
-          a[cs][:tie_hands] = player_hands
-        else
-          mk = scores.keys.max
-          a[cs][:win_hands] = scores[mk]
-          a[cs][:lose_hands] = scores.each_with_object([]) do |(k,v), a|
-            next if k == mk
-
-            a.concat(v)
-          end
-        end
-      end
-
-      s = z.size.to_f
-
-      player_hands.each_with_object({}) do |player_hand, h|
-        win_hands = z.select { |a,b| b[:win_hands]&.include?(player_hand) }
-        win_rate = win_hands.size / s
-        h[player_hand] = {}
-        h[player_hand][:win_rate] = win_rate
-        h[player_hand][:lose_rate] = z.count { |a,b| b[:lose_hands]&.include?(player_hand) } / s
-        h[player_hand][:tie_rate] = z.count { |a,b| b[:tie_hands]&.include?(player_hand) } / s
-        h[player_hand][:outs] = win_hands.keys if win_rate < 0.5
-      end
+      PokerOdds::Evaluator.flop_equities(@player_hands, @flop_cards, @expose_cards)
     end
 
+    # No community cards. Exhaustively iterates all C(deck, 5) boards.
+    # Returns: { "9d9c" => { win_rate:, lose_rate:, tie_rate:, outs: [[...], ...] }, ... }
     def preflop_equities
-      ran = deck.combination(5).to_a
-      z = 10000.times.with_object({}) do |i, a|
-        cs = ran.sample
-        scores = player_hands.each_with_object({}) do |player_hand, h|
-          cards = player_hand
-
-          cs.each { |c| cards = cards.add_card(c) }
-
-          h[cards.score] ||= []
-          h[cards.score] << player_hand
-        end
-
-        a[cs] = {}
-        if scores.keys.size == 1
-          a[cs][:tie_hands] = player_hands
-        else
-          mk = scores.keys.max
-          a[cs][:win_hands] = scores[mk]
-          a[cs][:lose_hands] = scores.each_with_object([]) do |(k,v), a|
-            next if k == mk
-
-            a.concat(v)
-          end
-        end
-      end
-
-      s = z.size.to_f
-
-      player_hands.each_with_object({}) do |player_hand, h|
-        win_hands = z.select { |a,b| b[:win_hands]&.include?(player_hand) }
-        win_rate = win_hands.size / s
-        h[player_hand] = {}
-        h[player_hand][:win_rate] = win_rate
-        h[player_hand][:lose_rate] = z.count { |a,b| b[:lose_hands]&.include?(player_hand) } / s
-        h[player_hand][:tie_rate] = z.count { |a,b| b[:tie_hands]&.include?(player_hand) } / s
-        h[player_hand][:outs] = win_hands.keys if win_rate < 0.5
-      end
-    end
-
-    def deck
-      cards = PokerTrump::Cards.new_deck
-      cards.delete_cards!(expose_cards) unless expose_cards.size == 0
-      player_hands.each do |player_hand|
-        cards.delete_cards!(player_hand)
-      end
-      cards.delete_cards!(flop_cards) unless flop_cards.size == 0
-      cards.delete_card!(turn_card) if !!turn_card
-      cards.delete_card!(river_card) if !!river_card
-
-      cards
+      PokerOdds::Evaluator.preflop_equities(@player_hands, @expose_cards)
     end
   end
 end

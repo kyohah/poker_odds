@@ -1,0 +1,12 @@
+[package]
+name = "poker_odds"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "poker_odds"
+crate-type = ["cdylib"]
+
+[dependencies]
+magnus = "0.7"
+holdem-hand-evaluator = { git = "https://github.com/b-inary/holdem-hand-evaluator", rev = "d7b2a5bb" }
