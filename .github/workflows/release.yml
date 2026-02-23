@@ -55,7 +55,7 @@ jobs:
           merge-multiple: true
           path: pkg/
 
-      - uses: rubygems/configure-rubygems-credentials@v1
+      - uses: rubygems/configure-rubygems-credentials@v1.0.0
 
       - name: Push all gems to RubyGems
         run: find pkg/ -name "*.gem" | sort | xargs -I{} gem push {}
