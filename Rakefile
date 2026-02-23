@@ -17,7 +17,6 @@ RbSys::ExtensionTask.new("poker_odds", GEMSPEC) do |ext|
     aarch64-linux
     x86_64-darwin
     arm64-darwin
-    x86_64-mingw-ucrt
   ]
 end
 
