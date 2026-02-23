@@ -44,6 +44,7 @@ jobs:
     name: Publish to RubyGems
     needs: cross-compile
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - uses: actions/download-artifact@v4
